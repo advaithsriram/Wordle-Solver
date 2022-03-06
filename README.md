@@ -22,5 +22,5 @@ Similarly, in the above image, the corresponding text input into the program wou
 5) With each turn, the confidence value of the suggested answer will increase. Repeat steps 3 and 4 until the program returns a word with a 100% confidence value. This is the answer to the Wordle Puzzle.
 
 # Video Demonstration
-Please watch the video for further clarifications
+Please watch the video for further clarifications  
 ![Video Demonstration](https://github.com/advaithsriram/Wordle-Solver/blob/main/wordle%20mar6.mov)
