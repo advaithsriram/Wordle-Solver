@@ -18,7 +18,7 @@ total_score = 0
 
 def read_from_txt(word_list):
     #read from the textfile and store as a list. duplicate list
-    with open("wordle_word.txt") as file:
+    with open("wordle_words.txt") as file:
         for line in file:
             word_list.append(line.rstrip())
     word_list.sort()
