@@ -72,36 +72,6 @@ The solver uses a strategic approach:
 3. **Dynamic Strategy**: Adjusts its guessing strategy based on confidence and remaining possibilities
 4. **Continuous Learning**: If no valid words remain, you can submit the actual word to help improve the database
 
-## Deploying to Cloud
-
-### Deploy on Streamlit Cloud (Easiest)
-1. Push your repository to GitHub
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Click "New app"
-4. Select your GitHub repository, branch, and specify `wordle_ui.py` as the main file
-5. Click "Deploy"
-
-### Deploy on Heroku
-1. Create a `Procfile` in your project root:
-```
-web: streamlit run wordle_ui.py --logger.level=error
-```
-
-2. Create a `.streamlit/config.toml` file:
-```toml
-[server]
-headless = true
-port = $PORT
-enableCORS = false
-```
-
-3. Deploy using Heroku CLI:
-```bash
-git push heroku main
-```
-
-### Deploy on AWS / Other Cloud Providers
-Streamlit can be deployed on any platform that supports Python. Follow Streamlit's [deployment documentation](https://docs.streamlit.io/streamlit-cloud/deploy-your-app) for detailed instructions.
 
 ## Example Gameplay
 
@@ -129,4 +99,4 @@ In the above image, the corresponding feedback would be: Yellow-Yellow-Green-Gre
 The solver typically finds the answer within 4-6 attempts, with high confidence by turn 3-4.
 
 ## License
-See LICENSE file for details
+MIT
