@@ -9,8 +9,37 @@ that mimics the official Wordle game experience.
 Author: advaith
 """
 
+import os
+
 import streamlit as st
-from wordle_solver import WordleSolver, WORD_LENGTH, MAX_TURNS
+
+from naive.wordle_solver import MAX_TURNS, WORD_LENGTH, WordleSolver
+from trained.trained_solver import TrainedWordleSolver
+
+
+TRAINED_MODEL_PATH = "trained/trained_strategy.json"
+
+
+def build_solver(mode: str):
+    if mode == "trained":
+        if os.path.exists(TRAINED_MODEL_PATH):
+            return TrainedWordleSolver(model_path=TRAINED_MODEL_PATH)
+        return TrainedWordleSolver()
+    return WordleSolver()
+
+
+def reset_game_state() -> None:
+    st.session_state.solver = build_solver(st.session_state.solver_mode)
+    st.session_state.solver.load_words()
+    st.session_state.turn = 0
+    st.session_state.game_over = False
+    st.session_state.won = False
+    st.session_state.feedback_submitted = False
+    st.session_state.history = []
+    st.session_state.current_guess = None
+    st.session_state.guessed_words = []
+    if "feedback" in st.session_state:
+        del st.session_state.feedback
 
 # Page configuration
 st.set_page_config(
@@ -114,17 +143,27 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+if "solver_mode" not in st.session_state:
+    st.session_state.solver_mode = "naive"
+
+selected_mode = st.selectbox(
+    "Solver Mode",
+    ["naive", "trained"],
+    index=0 if st.session_state.solver_mode == "naive" else 1,
+    help="Switch between the baseline naive heuristic and the trained strategy model.",
+)
+
+if selected_mode != st.session_state.solver_mode:
+    st.session_state.solver_mode = selected_mode
+    reset_game_state()
+    st.rerun()
+
+if st.session_state.solver_mode == "trained" and not os.path.exists(TRAINED_MODEL_PATH):
+    st.warning("Trained model file not found. Using default trained weights.")
+
 # Initialize session state
 if "solver" not in st.session_state:
-    st.session_state.solver = WordleSolver()
-    st.session_state.solver.load_words()
-    st.session_state.turn = 0
-    st.session_state.game_over = False
-    st.session_state.won = False
-    st.session_state.feedback_submitted = False
-    st.session_state.history = []
-    st.session_state.current_guess = None
-    st.session_state.guessed_words = []  # Track guessed words in session state
+    reset_game_state()
 
 solver = st.session_state.solver
 
@@ -135,7 +174,10 @@ if not st.session_state.game_over and st.session_state.current_guess is None:
 
 # Header
 st.markdown("<div class='header-title'>WORDLE SOLVER</div>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #b3b6b7;'>AI-Powered Solver</p>", unsafe_allow_html=True)
+st.markdown(
+    f"<p style='text-align: center; color: #b3b6b7;'>AI-Powered Solver ({st.session_state.solver_mode})</p>",
+    unsafe_allow_html=True,
+)
 
 # Show intro message on first load
 if "intro_shown" not in st.session_state:
@@ -280,17 +322,7 @@ else:
     
     # Reset button
     if st.button("Play Again", use_container_width=True):
-        st.session_state.solver = WordleSolver()
-        st.session_state.solver.load_words()
-        st.session_state.turn = 0
-        st.session_state.game_over = False
-        st.session_state.won = False
-        st.session_state.feedback_submitted = False
-        st.session_state.history = []
-        st.session_state.current_guess = None
-        st.session_state.guessed_words = []
-        if "feedback" in st.session_state:
-            del st.session_state.feedback
+        reset_game_state()
         st.rerun()
 
 # Footer
