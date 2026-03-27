@@ -1,10 +1,11 @@
 # Wordle-Solver
-A Python program that can solve the daily NY Times' Wordle using AI and letter frequency analysis.
+A Python Wordle project with a naive heuristic solver, interactive UI, and benchmark tooling.
 
 ## Features
-- AI-powered word guessing using letter frequency analysis
+- Naive heuristic word guessing using letter frequency and elimination
 - Interactive Streamlit web UI with color-coded feedback
 - Real-time confidence tracking and word possibility updates
+- Automated benchmark runner with notes and "hard"-word reporting
 
 ## Installation
 
@@ -64,23 +65,23 @@ What this does:
 - Finds hard words across multiple random seeds
 - Overwrites `notes.md` with the latest benchmark summary on every run
 
-## How It Works
+## Naive Solver: How It Works
 
-The solver uses a strategic approach:
-1. **Letter Frequency Analysis**: Analyzes which letters appear most frequently in the valid word list
-2. **Elimination**: Removes words that don't match your feedback
-3. **Dynamic Strategy**: Adjusts its guessing strategy based on confidence and remaining possibilities
-4. **Continuous Learning**: If no valid words remain, you can submit the actual word to help improve the database
+The current solver is intentionally naive (heuristic, not trained).
 
+### Core loop
+1. Choose a guess from the current candidate list.
+2. Receive feedback as a 5-digit code:
+- `2` = green (correct letter, correct position)
+- `1` = yellow (correct letter, wrong position)
+- `0` = grey (not present, accounting for duplicate-letter counts)
+3. Filter candidate words to only those that would produce exactly the same feedback for that guess.
+4. Repeat for up to 6 turns.
 
-## Example Gameplay
-
-1. The AI suggests a word (e.g., "STARE")
-2. You play it in Wordle and see the color feedback
-3. Click the corresponding color button for each letter in the suggested word
-4. Click "Enter"
-5. The AI narrows down possibilities and suggests your next word
-6. Repeat until solved!
+### Guess policy
+1. Early turns (0-1): frequency-biased probing.
+2. Later turns: choose from narrowed candidates.
+3. Repeated guesses are avoided.
 
 ## Image Examples
 Green - Correct Position

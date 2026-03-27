@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Wordle Solver - An AI-powered solver for the Wordle game.
+Wordle Solver - A naive heuristic solver for the Wordle game.
 
 This module provides a class-based implementation of a Wordle puzzle solver
-that uses letter frequency analysis and elimination strategies to guess
-the correct word within 6 attempts.
+that uses letter-frequency heuristics and exact feedback-based elimination
+to guess the correct word within 6 attempts.
 
 Author: advaith
 """
@@ -27,7 +27,7 @@ GREEN: int = 2  # Letter in word, correct position
 
 class WordleSolver:
     """
-    A class to solve Wordle puzzles using frequency analysis and elimination.
+    A naive Wordle solver using frequency heuristics and elimination.
     """
 
     def __init__(self, word_file: str = WORD_FILE) -> None:
