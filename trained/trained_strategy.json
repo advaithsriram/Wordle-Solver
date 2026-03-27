@@ -1,0 +1,29 @@
+{
+  "weights": {
+    "unique_freq": 1.2920437273390109,
+    "positional_freq": 0.9795648929684451,
+    "unseen_letters": 1.4169203951269713,
+    "candidate_bonus": 1.200459915610745,
+    "duplicate_penalty": 1.4772895806402464
+  },
+  "explore_turns": 2,
+  "train_metrics": {
+    "score": 942.6510067114093,
+    "solve_rate": 0.9933333333333333,
+    "avg_turns": 3.568232662192394,
+    "failed": 3.0
+  },
+  "eval_metrics": {
+    "score": 963.8,
+    "solve_rate": 1.0,
+    "avg_turns": 3.62,
+    "failed": 0.0
+  },
+  "train_config": {
+    "iterations": 80,
+    "train_size": 450,
+    "eval_size": 200,
+    "seed": 7,
+    "step": 0.35
+  }
+}
