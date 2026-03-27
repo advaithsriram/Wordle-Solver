@@ -23,15 +23,22 @@ from datetime import date
 from statistics import mean
 from typing import Dict, List, Tuple
 
-from wordle_solver import MAX_TURNS, WordleSolver
+from naive.wordle_solver import MAX_TURNS, WordleSolver
+from trained.trained_solver import TrainedWordleSolver
 
 
-def simulate_target(target: str, seed: int) -> Tuple[bool, int]:
+def _build_solver(solver_type: str, model_path: str):
+    if solver_type == "trained":
+        return TrainedWordleSolver(model_path=model_path if model_path else None)
+    return WordleSolver()
+
+
+def simulate_target(target: str, seed: int, solver_type: str, model_path: str) -> Tuple[bool, int]:
     """Simulate one game against a specific target word for one random seed."""
     import random
 
     random.seed(seed)
-    solver = WordleSolver()
+    solver = _build_solver(solver_type, model_path)
     solver.load_words()
 
     guessed_words: List[str] = []
@@ -48,9 +55,12 @@ def simulate_target(target: str, seed: int) -> Tuple[bool, int]:
     return False, MAX_TURNS
 
 
-def run_single_seed(words: List[str], seed: int) -> Dict[str, object]:
+def run_single_seed(words: List[str], seed: int, solver_type: str, model_path: str) -> Dict[str, object]:
     """Run full benchmark for one seed across all words."""
-    results = [(word, *simulate_target(word, seed=seed)) for word in words]
+    results = [
+        (word, *simulate_target(word, seed=seed, solver_type=solver_type, model_path=model_path))
+        for word in words
+    ]
     failed_words = [word for word, solved, _turns in results if not solved]
     solved_turns = [turns for _word, solved, turns in results if solved]
 
@@ -70,13 +80,13 @@ def run_single_seed(words: List[str], seed: int) -> Dict[str, object]:
     }
 
 
-def run_multi_seed_hardness(words: List[str], seeds: List[int]) -> List[Tuple[str, int]]:
+def run_multi_seed_hardness(words: List[str], seeds: List[int], solver_type: str, model_path: str) -> List[Tuple[str, int]]:
     """Count how many seeds fail for each word and return sorted hard-word list."""
     fail_count = defaultdict(int)
 
     for word in words:
         for seed in seeds:
-            solved, _turns = simulate_target(word, seed=seed)
+            solved, _turns = simulate_target(word, seed=seed, solver_type=solver_type, model_path=model_path)
             if not solved:
                 fail_count[word] += 1
 
@@ -142,17 +152,19 @@ def write_notes_markdown(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark Wordle solver performance.")
+    parser.add_argument("--solver", choices=["naive", "trained"], default="naive", help="Solver mode to benchmark.")
+    parser.add_argument("--model-path", type=str, default="trained/trained_strategy.json", help="Path to trained model JSON (used with --solver trained).")
     parser.add_argument("--seed", type=int, default=42, help="Primary seed for single-seed report.")
     parser.add_argument("--num-seeds", type=int, default=10, help="Number of seeds for hard-word analysis.")
     parser.add_argument("--seed-start", type=int, default=0, help="First seed for hard-word analysis.")
     parser.add_argument("--word-limit", type=int, default=0, help="Limit number of words for faster test (0 = all).")
     parser.add_argument("--sample-failed", type=int, default=30, help="How many failed words to print from single-seed run.")
     parser.add_argument("--top-hard", type=int, default=40, help="How many hard words to print from multi-seed run.")
-    parser.add_argument("--notes-out", type=str, default="notes.md", help="Path to overwrite markdown notes output.")
+    parser.add_argument("--notes-out", type=str, default="notes/notes.md", help="Path to overwrite markdown notes output.")
     parser.add_argument("--json-out", type=str, default="", help="Optional JSON output path.")
     args = parser.parse_args()
 
-    template_solver = WordleSolver()
+    template_solver = _build_solver(args.solver, args.model_path)
     template_solver.load_words()
     words = template_solver.word_list
 
@@ -161,10 +173,13 @@ def main() -> None:
 
     seeds = list(range(args.seed_start, args.seed_start + max(1, args.num_seeds)))
 
-    single = run_single_seed(words, seed=args.seed)
-    hard_words = run_multi_seed_hardness(words, seeds=seeds)
+    single = run_single_seed(words, seed=args.seed, solver_type=args.solver, model_path=args.model_path)
+    hard_words = run_multi_seed_hardness(words, seeds=seeds, solver_type=args.solver, model_path=args.model_path)
 
     print("=== Single-Seed Report ===")
+    print(f"Solver: {args.solver}")
+    if args.solver == "trained":
+        print(f"Model path: {args.model_path}")
     print(f"Seed: {single['seed']}")
     print(f"Words tested: {single['total_words']}")
     print(f"Solved: {single['solved_count']}")
