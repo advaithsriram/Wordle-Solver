@@ -212,7 +212,7 @@ if not st.session_state.game_over:
             st.divider()
             
             # Submit button
-            if st.button("✓ Submit Feedback", key="submit", use_container_width=True):
+            if st.button("✓ Enter", key="submit", use_container_width=True):
                 # Track this guess in session state
                 st.session_state.guessed_words.append(current_guess)
                 
