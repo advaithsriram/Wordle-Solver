@@ -34,11 +34,12 @@ This will open a web browser at `http://localhost:8501` with an interactive inte
 - Click color buttons (⬜🟨🟩) to provide feedback
 - Watch real-time updates on confidence and remaining possibilities
 - Track your game history
+- Choose solver mode (`naive` or `trained`) from the dropdown
 
 ### Option 2: Command Line Interface
-For the original command-line version:
+For the naive command-line solver:
 ```bash
-python wordle_solver.py
+python naive/wordle_solver.py
 ```
 
 Then follow the prompts to enter feedback as:
@@ -63,7 +64,37 @@ What this does:
 - Simulates full games automatically (no manual input required)
 - Computes solve rate, average turns, and failed-word list
 - Finds hard words across multiple random seeds
-- Overwrites `notes.md` with the latest benchmark summary on every run
+- Overwrites `notes/notes.md` with the latest benchmark summary on every run
+
+You can benchmark either solver type:
+```bash
+python benchmark_solver.py --solver naive
+python benchmark_solver.py --solver trained --model-path trained/trained_strategy.json
+```
+
+### Option 4: Train a Small Strategy Model
+Train a lightweight linear strategy model (no external ML libraries required):
+```bash
+python trained/train_strategy_model.py
+```
+
+Useful options:
+```bash
+python trained/train_strategy_model.py --iterations 200 --train-size 600 --eval-size 300
+python trained/train_strategy_model.py --out trained/trained_strategy.json
+```
+
+This creates `trained/trained_strategy.json` containing learned weights and train/eval metrics.
+
+## Repository Structure
+
+- `naive/wordle_solver.py`: baseline naive heuristic solver
+- `trained/trained_solver.py`: trained strategy model solver
+- `trained/train_strategy_model.py`: training script for model weights
+- `trained/trained_strategy.json`: trained model weights
+- `benchmark_solver.py`: benchmark runner for both solver modes
+- `notes/`: benchmark notes and run summaries
+- `wordle_ui.py`: Streamlit app with solver mode selector
 
 ## Naive Solver: How It Works
 
@@ -82,6 +113,20 @@ The current solver is intentionally naive (heuristic, not trained).
 1. Early turns (0-1): frequency-biased probing.
 2. Later turns: choose from narrowed candidates.
 3. Repeated guesses are avoided.
+
+## Trained Strategy Model: How It Works
+
+The trained solver uses a small linear scoring model over handcrafted features.
+
+Features per candidate guess:
+1. Unique-letter frequency score from remaining candidates.
+2. Positional letter-frequency score.
+3. Bonus for letters not yet seen in prior guesses.
+4. Bonus if the word is still in the candidate answer pool.
+5. Penalty for duplicate letters.
+
+During training, random search mutates these feature weights and keeps models that
+improve solve rate and average turns on a training subset.
 
 ## Image Examples
 Green - Correct Position
