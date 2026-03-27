@@ -2,10 +2,9 @@
 A Python program that can solve the daily NY Times' Wordle using AI and letter frequency analysis.
 
 ## Features
-- 🤖 AI-powered word guessing using letter frequency analysis
-- 🎮 Interactive Streamlit web UI with color-coded feedback
-- 📊 Real-time confidence tracking and word possibility updates
-- 📝 Word suggestion system for improved database
+- AI-powered word guessing using letter frequency analysis
+- Interactive Streamlit web UI with color-coded feedback
+- Real-time confidence tracking and word possibility updates
 
 ## Installation
 
@@ -45,6 +44,25 @@ Then follow the prompts to enter feedback as:
 - **0** for Grey (not in word)
 - **1** for Yellow (wrong position)
 - **2** for Green (correct position)
+
+### Option 3: Benchmark Solver (Auto Simulation)
+Run the benchmark to evaluate solve rate across the dictionary:
+```bash
+python benchmark_solver.py
+```
+
+Useful options:
+```bash
+python benchmark_solver.py --num-seeds 10 --seed-start 0
+python benchmark_solver.py --word-limit 500 --sample-failed 20
+python benchmark_solver.py --json-out benchmark_results.json
+```
+
+What this does:
+- Simulates full games automatically (no manual input required)
+- Computes solve rate, average turns, and failed-word list
+- Finds hard words across multiple random seeds
+- Overwrites `notes.md` with the latest benchmark summary on every run
 
 ## How It Works
 
@@ -90,7 +108,7 @@ Streamlit can be deployed on any platform that supports Python. Follow Streamlit
 1. The AI suggests a word (e.g., "STARE")
 2. You play it in Wordle and see the color feedback
 3. Click the corresponding color button for each letter in the suggested word
-4. Click "Submit Feedback"
+4. Click "Enter"
 5. The AI narrows down possibilities and suggests your next word
 6. Repeat until solved!
 
