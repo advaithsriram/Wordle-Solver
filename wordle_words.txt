@@ -1060,6 +1060,7 @@ joker
 jolly
 joust
 judge
+judgy
 juice
 juicy
 jumbo
