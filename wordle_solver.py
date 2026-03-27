@@ -1,156 +1,258 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Mar  3 17:25:00 2022
+Wordle Solver - An AI-powered solver for the Wordle game.
 
-@author: advaith
+This module provides a class-based implementation of a Wordle puzzle solver
+that uses letter frequency analysis and elimination strategies to guess
+the correct word within 6 attempts.
+
+Author: advaith
 """
 
 import random
+from collections import Counter
+from typing import List, Tuple
 
-#%%
+# Constants
+WORD_LENGTH: int = 5
+MAX_TURNS: int = 6
+PERFECT_SCORE: int = 22222  # 5 positions * score of 2 (green)
+WORD_FILE: str = "wordle_words.txt"
 
-"""GLOBAL VARIABLES"""
-max_score = 22222
-round_score = 0
-total_score = 0
+# Letter Score Constants
+GREY: int = 0  # Letter not in word
+YELLOW: int = 1  # Letter in word, wrong position
+GREEN: int = 2  # Letter in word, correct position
 
 
-def read_from_txt(word_list):
-    #read from the textfile and store as a list. duplicate list
-    with open("wordle_words.txt") as file:
-        for line in file:
-            word_list.append(line.rstrip())
-    word_list.sort()
-    return word_list, word_list
+class WordleSolver:
+    """
+    A class to solve Wordle puzzles using frequency analysis and elimination.
+    """
 
-def find_letter_frequency(word_list):
-    #first, combine the entire list to one big string. then find letter frequencies of the string
-    letter_frequency = {}
-    combined_string = "".join([str(word) for word in word_list])
-    for char in combined_string:
-        if char in letter_frequency: 
-            letter_frequency[char] += 1
+    def __init__(self, word_file: str = WORD_FILE) -> None:
+        """
+        Initialize the Wordle Solver.
+
+        Args:
+            word_file: Path to the file containing valid Wordle words.
+        """
+        self.word_file = word_file
+        self.word_list: List[str] = []
+        self.possible_words: List[str] = []
+        self.letter_frequency: List[Tuple[str, int]] = []
+        self.total_score: int = 0
+        self.current_guess: str = ""
+
+    def load_words(self) -> None:
+        """Load words from file and initialize the word list."""
+        try:
+            with open(self.word_file, 'r') as file:
+                self.word_list = [line.rstrip().lower() for line in file]
+            
+            if not self.word_list:
+                raise ValueError("Word list is empty")
+            
+            self.possible_words = self.word_list.copy()
+            self._update_letter_frequency()
+        except FileNotFoundError:
+            print(f"Error: {self.word_file} not found.")
+            raise
+        except Exception as e:
+            print(f"Error loading words: {e}")
+            raise
+
+    def _update_letter_frequency(self) -> None:
+        """
+        Update letter frequency based on current possible words.
+        This dynamic update improves guessing strategy as possibilities shrink.
+        """
+        combined_string = "".join(self.possible_words)
+        letter_counts = Counter(combined_string)
+        # Sort by frequency in descending order
+        self.letter_frequency = letter_counts.most_common()
+
+    def _get_strategic_guess(self, turn: int) -> str:
+        """
+        Get a strategic guess based on letter frequency and turn number.
+
+        Args:
+            turn: Current turn number (0-5).
+
+        Returns:
+            A word to guess.
+        """
+        if self.total_score <= 4 and len(self.possible_words) > 3:
+            # Early game with high-frequency letters
+            return self._select_frequent_word(turn)
         else:
-            letter_frequency[char] = 1
-    #sort frequency in descending order
-    letter_frequency = sorted(letter_frequency.items(), key = lambda kv: kv[1],reverse=True)
-    return letter_frequency
+            # Random selection from remaining possibilities
+            return random.choice(self.possible_words)
 
-def randomWord(min,max):
-    temp_list = word_list
-    for i in range(min,max):
-        #use list comprehension to go through list and remove words which dont have the specified letters
-        y = letter_frequency[i][0]
-        temp_list = [x for x in temp_list if y in x]
-    if len(temp_list) == 0:
-        temp_list.append(randomWord(min,max-1))
-    return random.choice(temp_list)
+    def _select_frequent_word(self, turn: int) -> str:
+        """
+        Select a word containing the most frequent letters.
 
+        Args:
+            turn: Current turn number.
 
-def game(updated_word_list, turn):
-    round_score = 0
-    global total_score
-    if total_score <= 4 and len(updated_word_list) > 3:
-        word_guess = randomWord(turn*5,(turn+1)*5)
-    
-    else:
-        word_guess = random.choice(updated_word_list)
+        Returns:
+            A word containing frequent letters, or random if none match.
+        """
+        for i in range(len(self.letter_frequency)):
+            frequent_letter = self.letter_frequency[i][0]
+            candidates = [w for w in self.possible_words if frequent_letter in w]
+            if candidates:
+                return random.choice(candidates)
         
-    confidence_value = confidence(updated_word_list)
-    print("The computer's guess is: \n {}\n Confidence Value: {}%".format(word_guess, round((confidence_value),2)))
-    round_score = input("Enter result of guess (grey = 0, yellow = 1, green = 2, Ex. 11002): ")
-    for i in range(0,5):
-        total_score += int(round_score[i])
-    
-    # print("Total score is {}".format(total_score))
-    return word_guess, str(round_score)
+        # Fallback: return random word if no frequent letters found
+        return random.choice(self.possible_words) if self.possible_words else random.choice(self.word_list)
 
-def update_word_list(updated_word_list, word_guess, round_score):
-    for i in range(0,5):
-        no_repeat_status = True
-        # print(round_score)
-        letter_score = int(round_score[i])
-        letter_guess = word_guess[i]
-        #grey, letter_score = 0
-        if letter_score == 0:
-            for j in range(0,5):
-                if j != i:
-                    if letter_guess == word_guess[j]:
-                        no_repeat_status = False
-            if no_repeat_status == True:
-                updated_word_list = [x for x in updated_word_list if letter_guess not in x]
+    def make_guess(self, turn: int) -> Tuple[str, str]:
+        """
+        Make a guess and collect user feedback.
+
+        Args:
+            turn: Current turn number (0-5).
+
+        Returns:
+            Tuple of (guessed_word, feedback_string).
+        """
+        self.current_guess = self._get_strategic_guess(turn)
+        confidence_value = self._calculate_confidence()
         
-        #yellow, letter_score = 1
-        if letter_score == 1:
-            updated_word_list = [x for x in updated_word_list if (letter_guess in x and letter_guess not in x[i])]
+        print(f"\nThe computer's guess is:\n  {self.current_guess.upper()}")
+        print(f"  Confidence Value: {confidence_value:.2f}%\n")
         
-        #green, letter_score = 2
-        if letter_score == 2:
-            updated_word_list = [x for x in updated_word_list if (letter_guess in x and letter_guess in x[i])]
+        while True:
+            try:
+                feedback = input("Enter result of guess (grey=0, yellow=1, green=2, Ex. 02002): ").strip()
+                
+                if len(feedback) != WORD_LENGTH or not feedback.isdigit():
+                    print(f"Invalid input. Please enter exactly {WORD_LENGTH} digits (0, 1, or 2).")
+                    continue
+                
+                if not all(c in '012' for c in feedback):
+                    print("Invalid input. Each digit must be 0 (grey), 1 (yellow), or 2 (green).")
+                    continue
+                
+                # Update total score
+                for digit in feedback:
+                    self.total_score += int(digit)
+                
+                return self.current_guess, feedback
+            
+            except Exception as e:
+                print(f"Error: {e}. Please try again.")
 
-    return updated_word_list
+    def update_possibilities(self, word_guess: str, feedback: str) -> None:
+        """
+        Update the list of possible words based on feedback.
+
+        Args:
+            word_guess: The guessed word.
+            feedback: String of feedback (0, 1, or 2 for each position).
+        """
+        new_possibilities = self.possible_words.copy()
+
+        for pos, (letter, score_char) in enumerate(zip(word_guess, feedback)):
+            score = int(score_char)
+
+            if score == GREY:
+                # Letter is not in the word (unless it appears elsewhere)
+                letter_positions = [i for i, c in enumerate(word_guess) if c == letter]
+                
+                # Check if letter appears in other positions with green/yellow
+                has_other_match = any(int(feedback[i]) > GREY for i in letter_positions if i != pos)
+                
+                if not has_other_match:
+                    new_possibilities = [w for w in new_possibilities if letter not in w]
+
+            elif score == YELLOW:
+                # Letter is in word but wrong position
+                new_possibilities = [w for w in new_possibilities if letter in w and w[pos] != letter]
+
+            elif score == GREEN:
+                # Letter is in correct position
+                new_possibilities = [w for w in new_possibilities if w[pos] == letter]
+
+        self.possible_words = new_possibilities
+        self._update_letter_frequency()
+
+    def _calculate_confidence(self) -> float:
+        """
+        Calculate confidence as a percentage based on remaining possibilities.
+
+        Returns:
+            Confidence percentage (0-100).
+        """
+        if len(self.possible_words) == 0:
+            return 0.0
+        return 100.0 / len(self.possible_words)
+
+    def play(self) -> None:
+        """Run the Wordle solving game."""
+        print("=" * 50)
+        print("Welcome to Wordle Solver!")
+        print("=" * 50)
+        print(f"Starting with {len(self.word_list)} possible words.\n")
+
+        self.load_words()
+        win = False
+
+        for turn in range(MAX_TURNS):
+            print(f"Turn {turn + 1}/{MAX_TURNS} - Remaining possibilities: {len(self.possible_words)}")
+            
+            word_guess, feedback = self.make_guess(turn)
+
+            # Check for win (all green)
+            if feedback == "2" * WORD_LENGTH:
+                win = True
+                print(f"\n🎉 Computer wins! The word was: {word_guess.upper()}")
+                print(f"Final score: {self.total_score}")
+                break
+
+            self.update_possibilities(word_guess, feedback)
+
+            if len(self.possible_words) == 0:
+                print("\n❌ No valid words remain. The puzzle may be invalid.")
+                break
+
+        if not win:
+            print(f"\n😢 Game Over! Better luck next time.")
+            print(f"Total score: {self.total_score}")
 
 
+def debug_solver() -> None:
+    """Debug the solver with predefined test cases."""
+    print("\n=== DEBUGGING MODE ===\n")
+    solver = WordleSolver()
+    solver.load_words()
 
-#%%
+    test_cases = [
+        ("those", "00200"),
+        ("brain", "00000"),
+        ("brunt", "00000"),
+        ("lumpy", "10000"),
+        ("lease", "10000"),
+    ]
 
-def confidence(updated_word_list):
+    for word, feedback in test_cases:
+        print(f"Guessed: {word}, Feedback: {feedback}")
+        solver.update_possibilities(word, feedback)
+        print(f"Remaining: {len(solver.possible_words)} words\n")
+
+    print(f"Final possibilities: {solver.possible_words[:10]}...")
+
+
+if __name__ == "__main__":
+    solver = WordleSolver()
+    solver.play()
     
-    confidence_value = 100 / len(updated_word_list)
-    
-    return confidence_value
-
-#%%
-if __name__ == '__main__':
-    turn = 0
-    print("Time to guess today's Wordle!\n")
-    win_status = False
-    word_list = []
-    updated_word_list = []
-    word_list, updated_word_list = read_from_txt(word_list)
-    # print("Total Score is {}".format(total_score))
-    letter_frequency = find_letter_frequency(word_list)   
-    for turn in range(0,6):
-        #print(updated_word_list)
-        word_guess, round_score = game(updated_word_list, turn)
-        if int(round_score) == max_score:
-            win_status = True
-            break
-        updated_word_list = update_word_list(updated_word_list, word_guess, round_score)
-        # print(len(updated_word_list))
-        # print(updated_word_list)
-    
-    if win_status == True:
-        print("Computer wins! The final word was:\n\n{}".format(word_guess))
-    else:
-        print("That was hard! Congratulations you won")
-   
-
+    # Uncomment below to run debug mode:
+    # debug_solver()
         
-#%%
-        
-"""DEBUGGING"""
-def debugging():
-    win_status = False
-    word_list = []
-    updated_word_list = []
-    word_list, updated_word_list = read_from_txt(word_list)
-    # print("Total Score is {}".format(total_score))
-    letter_frequency = find_letter_frequency(word_list)   
-    updated_word_list = update_word_list(updated_word_list, "those", "00200")
-    updated_word_list = update_word_list(updated_word_list, "brain", "00000")
-    updated_word_list = update_word_list(updated_word_list, "brunt", "00000")
-    updated_word_list = update_word_list(updated_word_list, "lumpy", "10000")
-    updated_word_list = update_word_list(updated_word_list, "lease", "10000")
-    print(len(updated_word_list))
-    print(updated_word_list)
-
-#debugging()
-        
-    
-#%%
-    
 
 
         
