@@ -10,12 +10,12 @@ Author: advaith
 """
 
 import streamlit as st
-from wordle_solver import WordleSolver, WORD_LENGTH, MAX_TURNS, PERFECT_SCORE
+from wordle_solver import WordleSolver, WORD_LENGTH, MAX_TURNS
 
 # Page configuration
 st.set_page_config(
     page_title="Wordle Solver",
-    page_icon="🎮",
+    page_icon="W",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
@@ -124,12 +124,13 @@ if "solver" not in st.session_state:
     st.session_state.feedback_submitted = False
     st.session_state.history = []
     st.session_state.current_guess = None
+    st.session_state.guessed_words = []  # Track guessed words in session state
 
 solver = st.session_state.solver
 
 # Generate current guess only once per turn
 if not st.session_state.game_over and st.session_state.current_guess is None:
-    st.session_state.current_guess = solver._get_strategic_guess(st.session_state.turn)
+    st.session_state.current_guess = solver._get_strategic_guess(st.session_state.turn, st.session_state.guessed_words)
     solver.current_guess = st.session_state.current_guess
 
 # Header
@@ -141,8 +142,8 @@ if "intro_shown" not in st.session_state:
     st.markdown("""
     <div style='text-align: center; background-color: #1f1f23; padding: 20px; border-radius: 8px; margin: 20px 0;'>
         <p style='font-size: 1.1em; margin: 10px 0;'>
-            🤖 Are you struggling with Wordle today? <br>
-            <span style='color: #b3b6b7; font-size: 0.95em;'>Let me help you solve it! (Or maybe you think you can beat me? 😏)</span>
+            Are you struggling with Wordle today? <br>
+            <span style='color: #b3b6b7; font-size: 0.95em;'>Let me help you solve it!</span>
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -158,7 +159,7 @@ if not st.session_state.game_over:
     with col2:
         st.metric("Confidence", f"{solver._calculate_confidence():.1f}%")
     with col3:
-        st.metric("Remaining Words", len(solver.possible_words))
+        st.metric("Possible Words", len(solver.possible_words))
     st.markdown("</div>", unsafe_allow_html=True)
     
     st.divider()
@@ -212,6 +213,9 @@ if not st.session_state.game_over:
             
             # Submit button
             if st.button("✓ Submit Feedback", key="submit", use_container_width=True):
+                # Track this guess in session state
+                st.session_state.guessed_words.append(current_guess)
+                
                 # Update solver
                 solver.update_possibilities(current_guess, feedback_str)
                 
@@ -242,28 +246,28 @@ else:
     st.divider()
     
     if st.session_state.won:
-        st.success(f"🎉 **Computer Wins!**", icon="🎉")
+        st.success("**Computer Wins!**")
         st.markdown(f"<p style='text-align: center; font-size: 1.5em;'>The word was: **{solver.current_guess.upper()}**</p>", unsafe_allow_html=True)
         st.markdown(f"<p style='text-align: center;'>Solved in **{st.session_state.turn + 1}** turn{'s' if st.session_state.turn + 1 != 1 else ''}</p>", unsafe_allow_html=True)
     elif len(solver.possible_words) == 0:
-        st.error("**No Valid Words Remain**", icon="❌")
+        st.error("**No Valid Words Remain**")
         st.markdown("<p style='text-align: center;'>Are you sure you haven't made a mistake? Please try again or verify your feedback.</p>", unsafe_allow_html=True)
         
         st.divider()
         st.markdown("<p style='text-align: center; font-weight: bold;'>Did you know what the word was?</p>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: #b3b6b7; font-size: 0.9em;'>If you knew the answer, please enter it below to help us improve our database! 📝</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #b3b6b7; font-size: 0.9em;'>If you knew the answer, please enter it below to help us improve our database!</p>", unsafe_allow_html=True)
         
         user_word = st.text_input("Enter the word (5 letters):", max_chars=5, placeholder="e.g., GUAVA").lower().strip()
         
         if user_word:
             if len(user_word) == WORD_LENGTH and user_word.isalpha():
-                st.success("✅ **Thank you!**")
-                st.markdown("<p style='text-align: center;'>We have recorded your word and will update our database accordingly! </p>", unsafe_allow_html=True)
+                st.success("**Thank you!**")
+                st.markdown("<p style='text-align: center;'>We have recorded your word and will update our database accordingly!</p>", unsafe_allow_html=True)
                 st.markdown(f"<p style='text-align: center; color: #538d4e;'>Word: <strong>{user_word.upper()}</strong></p>", unsafe_allow_html=True)
             else:
-                st.warning("⚠️ Please enter a valid 5-letter word.")
+                st.warning("Please enter a valid 5-letter word.")
     else:
-        st.info("📊 **Game Over**", icon="📊")
+        st.info("**Game Over**")
         st.markdown("<p style='text-align: center;'>Max turns reached without solving the puzzle.</p>", unsafe_allow_html=True)
     
     # Display game history
@@ -275,7 +279,7 @@ else:
             st.markdown(f"**Turn {turn_num}:** {guess.upper()} {feedback_display}")
     
     # Reset button
-    if st.button("🔄 Play Again", use_container_width=True):
+    if st.button("Play Again", use_container_width=True):
         st.session_state.solver = WordleSolver()
         st.session_state.solver.load_words()
         st.session_state.turn = 0
@@ -284,6 +288,7 @@ else:
         st.session_state.feedback_submitted = False
         st.session_state.history = []
         st.session_state.current_guess = None
+        st.session_state.guessed_words = []
         if "feedback" in st.session_state:
             del st.session_state.feedback
         st.rerun()

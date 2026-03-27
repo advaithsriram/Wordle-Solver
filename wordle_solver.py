@@ -12,12 +12,11 @@ Author: advaith
 
 import random
 from collections import Counter
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 # Constants
 WORD_LENGTH: int = 5
 MAX_TURNS: int = 6
-PERFECT_SCORE: int = 22222  # 5 positions * score of 2 (green)
 WORD_FILE: str = "wordle_words.txt"
 
 # Letter Score Constants
@@ -42,7 +41,6 @@ class WordleSolver:
         self.word_list: List[str] = []
         self.possible_words: List[str] = []
         self.letter_frequency: List[Tuple[str, int]] = []
-        self.total_score: int = 0
         self.current_guess: str = ""
 
     def load_words(self) -> None:
@@ -73,28 +71,42 @@ class WordleSolver:
         # Sort by frequency in descending order
         self.letter_frequency = letter_counts.most_common()
 
-    def _get_strategic_guess(self, turn: int) -> str:
+    def _get_strategic_guess(self, turn: int, excluded_words: Optional[List[str]] = None) -> str:
         """
         Get a strategic guess based on letter frequency and turn number.
+        Avoids previously guessed words.
 
         Args:
             turn: Current turn number (0-5).
+            excluded_words: List of words to exclude from selection (e.g., previously guessed words).
 
         Returns:
             A word to guess.
         """
-        if self.total_score <= 4 and len(self.possible_words) > 3:
-            # Early game with high-frequency letters
-            return self._select_frequent_word(turn)
-        else:
-            # Random selection from remaining possibilities
-            return random.choice(self.possible_words)
+        if excluded_words is None:
+            excluded_words = []
+        
+        # Filter out previously guessed words
+        available_words = [w for w in self.possible_words if w not in excluded_words]
+        
+        if not available_words:
+            # Fallback: still avoid repeats by using unseen dictionary words first.
+            unseen_words = [w for w in self.word_list if w not in excluded_words]
+            available_words = unseen_words if unseen_words else self.word_list
 
-    def _select_frequent_word(self, turn: int) -> str:
+        # Early turns prioritize high-frequency-letter probes (e.g., STARE).
+        if turn < 2 and len(available_words) > 3:
+            return self._select_frequent_word_from(available_words, turn)
+
+        # Later turns converge within the narrowed candidate set.
+        return random.choice(available_words)
+
+    def _select_frequent_word_from(self, word_list: List[str], turn: int) -> str:
         """
-        Select a word containing the most frequent letters.
+        Select a word containing the most frequent letters from a given list.
 
         Args:
+            word_list: List of words to choose from.
             turn: Current turn number.
 
         Returns:
@@ -102,12 +114,12 @@ class WordleSolver:
         """
         for i in range(len(self.letter_frequency)):
             frequent_letter = self.letter_frequency[i][0]
-            candidates = [w for w in self.possible_words if frequent_letter in w]
+            candidates = [w for w in word_list if frequent_letter in w]
             if candidates:
                 return random.choice(candidates)
         
         # Fallback: return random word if no frequent letters found
-        return random.choice(self.possible_words) if self.possible_words else random.choice(self.word_list)
+        return random.choice(word_list) if word_list else random.choice(self.possible_words)
 
     def make_guess(self, turn: int) -> Tuple[str, str]:
         """
@@ -137,14 +149,39 @@ class WordleSolver:
                     print("Invalid input. Each digit must be 0 (grey), 1 (yellow), or 2 (green).")
                     continue
                 
-                # Update total score
-                for digit in feedback:
-                    self.total_score += int(digit)
-                
                 return self.current_guess, feedback
             
             except Exception as e:
                 print(f"Error: {e}. Please try again.")
+
+    def _score_guess_against_target(self, guess: str, target: str) -> str:
+        """
+        Compute Wordle feedback for a guess against a target word.
+
+        Returns a 5-char string using:
+        - '2' for green (correct letter, correct position)
+        - '1' for yellow (correct letter, wrong position)
+        - '0' for grey (letter not present given remaining counts)
+        """
+        feedback = ["0"] * WORD_LENGTH
+        remaining_letters = Counter()
+
+        # Pass 1: mark greens and count unmatched target letters.
+        for idx in range(WORD_LENGTH):
+            if guess[idx] == target[idx]:
+                feedback[idx] = "2"
+            else:
+                remaining_letters[target[idx]] += 1
+
+        # Pass 2: mark yellows based on remaining target-letter counts.
+        for idx in range(WORD_LENGTH):
+            if feedback[idx] != "2":
+                letter = guess[idx]
+                if remaining_letters[letter] > 0:
+                    feedback[idx] = "1"
+                    remaining_letters[letter] -= 1
+
+        return "".join(feedback)
 
     def update_possibilities(self, word_guess: str, feedback: str) -> None:
         """
@@ -154,30 +191,13 @@ class WordleSolver:
             word_guess: The guessed word.
             feedback: String of feedback (0, 1, or 2 for each position).
         """
-        new_possibilities = self.possible_words.copy()
-
-        for pos, (letter, score_char) in enumerate(zip(word_guess, feedback)):
-            score = int(score_char)
-
-            if score == GREY:
-                # Letter is not in the word (unless it appears elsewhere)
-                letter_positions = [i for i, c in enumerate(word_guess) if c == letter]
-                
-                # Check if letter appears in other positions with green/yellow
-                has_other_match = any(int(feedback[i]) > GREY for i in letter_positions if i != pos)
-                
-                if not has_other_match:
-                    new_possibilities = [w for w in new_possibilities if letter not in w]
-
-            elif score == YELLOW:
-                # Letter is in word but wrong position
-                new_possibilities = [w for w in new_possibilities if letter in w and w[pos] != letter]
-
-            elif score == GREEN:
-                # Letter is in correct position
-                new_possibilities = [w for w in new_possibilities if w[pos] == letter]
-
-        self.possible_words = new_possibilities
+        # Exact Wordle-consistent filtering. This correctly handles duplicates
+        # such as VALVE/HALVE/LLAMA edge cases.
+        self.possible_words = [
+            candidate
+            for candidate in self.possible_words
+            if self._score_guess_against_target(word_guess, candidate) == feedback
+        ]
         self._update_letter_frequency()
 
     def _calculate_confidence(self) -> float:
@@ -209,19 +229,17 @@ class WordleSolver:
             # Check for win (all green)
             if feedback == "2" * WORD_LENGTH:
                 win = True
-                print(f"\n🎉 Computer wins! The word was: {word_guess.upper()}")
-                print(f"Final score: {self.total_score}")
+                print(f"\nComputer wins! The word was: {word_guess.upper()}")
                 break
 
             self.update_possibilities(word_guess, feedback)
 
             if len(self.possible_words) == 0:
-                print("\n❌ No valid words remain. The puzzle may be invalid.")
+                print("\nNo valid words remain. The puzzle may be invalid.")
                 break
 
         if not win:
-            print(f"\n😢 Game Over! Better luck next time.")
-            print(f"Total score: {self.total_score}")
+            print("\nGame Over! Better luck next time.")
 
 
 def debug_solver() -> None:
